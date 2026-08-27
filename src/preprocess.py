@@ -11,4 +11,4 @@ def normalize(values):
     maximum = arr.max()
     if minimum == maximum:
         return np.zeros_like(arr)
-    return arr / maximum
+    return (arr - minimum) / (maximum - minimum)
