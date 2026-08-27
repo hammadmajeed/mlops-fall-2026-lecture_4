@@ -1,0 +1,61 @@
+name: Prepare Version Bump PR
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  prepare-release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Read current version
+        id: old_version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Bump patch version
+        run: python scripts/bump_version.py
+      - name: Read new version
+        id: new_version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Run release-script tests
+        run: pytest tests/test_version.py -q
+      - name: Create release preparation PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: bot/version-bump
+          delete-branch: true
+          commit-message: >
+            chore(release): bump version to
+            v${{ steps.new_version.outputs.version }}
+          title: >
+            chore(release): v${{ steps.old_version.outputs.version }}
+            -> v${{ steps.new_version.outputs.version }}
+          body: |
+            ## Automated Release Preparation
+            This pull request was generated automatically by the release-preparation workflow.
+            ### Version
+            - Previous: `v${{ steps.old_version.outputs.version }}`
+            - Proposed: `v${{ steps.new_version.outputs.version }}`
+            - Change type: **PATCH**
+            ### Automated changes
+            - [x] Updated `VERSION`
+            - [x] Added a `CHANGELOG.md` entry
+            - [x] Ran version-bump unit tests
+            ### Required validation before merge
+            - [ ] CI workflow is green
+            - [ ] Model quality gate passes
+            - [ ] Human reviewer approves the PR
+            - [ ] Release notes are appropriate
+            > Do not merge only because this PR was created by automation.
+            > The same review and quality gates still apply.
+          labels: |
+            automated-pr
+            release
+          assignees: ${{ github.actor }}
+          draft: false
